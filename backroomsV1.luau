@@ -230,7 +230,7 @@ local function getActiveChests()
 			if model and model.Parent then
 				local breakableId = model:GetAttribute("BreakableID") or model.Name
 				if typeof(breakableId) == "string" then
-					if breakableId == "Daydream Mimic Chest" or breakableId == "Daydream Chest" then
+					if breakableId == "Daydream Mimic Chest" then
 						table.insert(daydreamChests, model)
 					elseif breakableId == "Daydream Mimic Boss" then
 						bossChest = model
