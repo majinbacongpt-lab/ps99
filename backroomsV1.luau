@@ -235,7 +235,7 @@ local function hasDaydreamKey()
 	if keyItem and keyItem:HasAny() then
 		return true
 	end
-	return false
+	return true
 end
 
 local function getActiveChests()
