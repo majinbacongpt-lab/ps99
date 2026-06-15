@@ -54,26 +54,14 @@ end
 
 local function getRoomsTable()
 	local ClientModule = require(game.Workspace.__THINGS.__INSTANCE_CONTAINER.Active.Backrooms.ClientModule)
-	local fireClient = ClientModule.Networking.AbstractRoom_FireClient
+	local getfenv = getfenv
 	local getupvalues = debug.getupvalues or getupvalues
-	if not getupvalues then return nil end
-	local withRoomFunc = nil
-	for _, v in pairs(getupvalues(fireClient)) do
-		if typeof(v) == "function" then
-			withRoomFunc = v
-			break
-		end
-	end
-	if not withRoomFunc then return nil end
-	local getRoomFunc = nil
-	for _, v in pairs(getupvalues(withRoomFunc)) do
-		if typeof(v) == "function" then
-			getRoomFunc = v
-			break
-		end
-	end
-	if not getRoomFunc then return nil end
-	for _, v in pairs(getupvalues(getRoomFunc)) do
+	if not getfenv or not getupvalues then return nil end
+	local env = getfenv(ClientModule.OnJoin)
+	if not env then return nil end
+	local getRoom = env.getRoom
+	if not getRoom then return nil end
+	for _, v in pairs(getupvalues(getRoom)) do
 		if typeof(v) == "table" then
 			return v
 		end
@@ -153,33 +141,26 @@ local function claimReward(rewardModel)
 	if not rewardModel or not rewardModel.Parent then
 		return false, "Invalid reward model"
 	end
-	
 	local roomUid = getRoomUid(rewardModel)
 	if not roomUid then
 		return false, "Could not find RoomUID"
 	end
-	
 	local character = game.Players.LocalPlayer.Character
 	if not character then
 		return false, "Player character not found"
 	end
-	
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 	if not hrp then
 		return false, "HumanoidRootPart not found"
 	end
-	
 	local pivot = rewardModel:GetPivot()
 	hrp.CFrame = pivot * CFrame.new(0, 3, 0)
-	
 	local success, result = pcall(function()
 		return Network.Invoke("Instancing_InvokeCustomFromClient", getInstanceId(), "AbstractRoom_InvokeServer", roomUid, "ClaimRandomReward", rewardModel)
 	end)
-	
 	if not success then
 		return false, tostring(result)
 	end
-	
 	return result
 end
 
@@ -231,11 +212,11 @@ local function getRoomsList()
 end
 
 local function hasDaydreamKey()
-	--local keyItem = MiscItem("Backrooms Crayon Key")
-	--if keyItem and keyItem:HasAny() then
-	--	return true
-	--end
-	return true
+	local keyItem = MiscItem("Backrooms Crayon Key")
+	if keyItem and keyItem:HasAny() then
+		return true
+	end
+	return false
 end
 
 local function getActiveChests()
@@ -245,11 +226,13 @@ local function getActiveChests()
 	local breakablesFolder = things and things:FindFirstChild("Breakables")
 	if breakablesFolder then
 		for _, child in ipairs(breakablesFolder:GetChildren()) do
-			local breakableClass = child:GetAttribute("BreakableClass")
-			if breakableClass == "Daydream Chest" or child.Name == "Daydream Chest" then
-				table.insert(daydreamChests, child)
-			elseif breakableClass == "Daydream Mimic Boss" or child.Name == "Daydream Mimic Boss" then
-				bossChest = child
+			local breakableId = child:GetAttribute("BreakableID") or child.Name
+			if typeof(breakableId) == "string" then
+				if breakableId == "Daydream Mimic Chest" or breakableId == "Daydream Chest" then
+					table.insert(daydreamChests, child)
+				elseif breakableId == "Daydream Mimic Boss" then
+					bossChest = child
+				end
 			end
 		end
 	end
@@ -257,21 +240,33 @@ local function getActiveChests()
 end
 
 local function farmBoss(bossRoom)
-	while autoMiniBoss and bossRoom.Parent do
+	while autoMiniBoss and bossRoom.Parent and not bossRoom:GetAttribute("BossDefeatedAt") do
 		local daydreamChests, bossChest = getActiveChests()
 		local character = game.Players.LocalPlayer.Character
 		local hrp = character and character:FindFirstChild("HumanoidRootPart")
 		if hrp then
+			hrp.Anchored = true
 			if #daydreamChests > 0 then
 				local targetChest = daydreamChests[1]
 				if targetChest and targetChest.Parent then
-					hrp.CFrame = targetChest:GetPivot() * CFrame.new(0, 0, 5)
-					while targetChest.Parent and autoMiniBoss and bossRoom.Parent do
+					hrp.CFrame = CFrame.new(targetChest:GetPivot().Position + Vector3.new(0, 5, 0))
+					while targetChest.Parent and autoMiniBoss and bossRoom.Parent and not bossRoom:GetAttribute("BossDefeatedAt") do
+						local currentChests = getActiveChests()
+						local stillExists = false
+						for _, chest in ipairs(currentChests) do
+							if chest == targetChest then
+								stillExists = true
+								break
+							end
+						end
+						if not stillExists then
+							break
+						end
 						task.wait(0.2)
 					end
 				end
 			elseif bossChest and bossChest.Parent then
-				hrp.CFrame = bossChest:GetPivot() * CFrame.new(0, 0, 5)
+				hrp.CFrame = CFrame.new(bossChest:GetPivot().Position + Vector3.new(0, 5, 0))
 				task.wait(0.2)
 			else
 				task.wait(0.5)
@@ -279,6 +274,11 @@ local function farmBoss(bossRoom)
 		else
 			task.wait(0.5)
 		end
+	end
+	local character = game.Players.LocalPlayer.Character
+	local hrp = character and character:FindFirstChild("HumanoidRootPart")
+	if hrp then
+		hrp.Anchored = false
 	end
 end
 
@@ -299,50 +299,6 @@ local function scanMap()
 	while isScanning and autoMiniBoss do
 		local bossRoom = findMiniBossRoom()
 		if bossRoom then
-			hrp.Anchored = false
-			hrp.CFrame = getRoomCFrame(bossRoom)
-			task.wait(3.0)
-			local lockCFrame = nil
-			local lockedDoors = bossRoom:FindFirstChild("LockedDoors")
-			if lockedDoors then
-				for _, door in ipairs(lockedDoors:GetChildren()) do
-					local lock = door:FindFirstChild("Lock")
-					if lock and lock:IsA("BasePart") then
-						lockCFrame = lock.CFrame
-						break
-					end
-				end
-			end
-			if lockCFrame then
-				hrp.CFrame = lockCFrame * CFrame.new(0, 0, 2)
-				task.wait(1.0)
-			end
-			local roomsTable = getRoomsTable()
-			local found = false
-			if roomsTable then
-				for uid, roomController in pairs(roomsTable) do
-					if roomController.model == bossRoom then
-						roomController:FireServer("UnlockDoors")
-						found = true
-					end
-				end
-			end
-			if not found then
-				Rayfield:Notify({
-					Title = "Error",
-					Content = "MiniBossRoom controller not found in active rooms list!",
-					Duration = 5.0
-				})
-			end
-			task.wait(1.0)
-			hrp.CFrame = getRoomCFrame(bossRoom)
-			Rayfield:Notify({
-				Title = "MiniBossRoom Found",
-				Content = "Successfully teleported to the MiniBossRoom and unlocked doors!",
-				Duration = 5.0
-			})
-			isScanning = false
-			task.spawn(farmBoss, bossRoom)
 			break
 		end
 		local rooms = getRoomsList()
@@ -368,6 +324,68 @@ local function scanMap()
 	isScanning = false
 end
 
+local function bossFarmer()
+	while autoMiniBoss do
+		local bossRoom = findMiniBossRoom()
+		if not bossRoom then
+			scanMap()
+			bossRoom = findMiniBossRoom()
+		end
+		if bossRoom and autoMiniBoss then
+			local character = game.Players.LocalPlayer.Character
+			local hrp = character and character:FindFirstChild("HumanoidRootPart")
+			if hrp then
+				hrp.CFrame = getRoomCFrame(bossRoom)
+				task.wait(3.0)
+				local lockCFrame = nil
+				local lockedDoors = bossRoom:FindFirstChild("LockedDoors")
+				if lockedDoors then
+					for _, door in ipairs(lockedDoors:GetChildren()) do
+						local lock = door:FindFirstChild("Lock")
+						if lock and lock:IsA("BasePart") then
+							lockCFrame = lock.CFrame
+							break
+						end
+					end
+				end
+				if lockCFrame then
+					hrp.CFrame = lockCFrame * CFrame.new(0, 0, 2)
+					task.wait(1.0)
+				end
+				local roomsTable = getRoomsTable()
+				local found = false
+				if roomsTable then
+					for uid, roomController in pairs(roomsTable) do
+						if roomController.model == bossRoom then
+							roomController:FireServer("UnlockDoors")
+							found = true
+						end
+					end
+				end
+				if not found then
+					Rayfield:Notify({
+						Title = "Error",
+						Content = "MiniBossRoom controller not found in active rooms list!",
+						Duration = 5.0
+					})
+				end
+				task.wait(1.0)
+				hrp.CFrame = getRoomCFrame(bossRoom)
+				Rayfield:Notify({
+					Title = "MiniBossRoom Found",
+					Content = "Successfully teleported to the MiniBossRoom and unlocked doors!",
+					Duration = 5.0
+				})
+				farmBoss(bossRoom)
+			else
+				task.wait(1.0)
+			end
+		else
+			task.wait(1.0)
+		end
+	end
+end
+
 local toggleObj
 toggleObj = Tab:CreateToggle({
 	Name = "Auto Find MiniBossRoom",
@@ -376,18 +394,18 @@ toggleObj = Tab:CreateToggle({
 	Callback = function(Value)
 		autoMiniBoss = Value
 		if Value then
-			--if not hasDaydreamKey() then
-			--	Rayfield:Notify({
-			--		Title = "Error",
-			--		Content = "You do not have a Daydream Key in your inventory!",
-			--		Duration = 5.0
-			--	})
-			--	task.spawn(function()
-			--		toggleObj:Set(false)
-			--	end)
-			--	return
-			--end
-			task.spawn(scanMap)
+			if not hasDaydreamKey() then
+				Rayfield:Notify({
+					Title = "Error",
+					Content = "You do not have a Daydream Key in your inventory!",
+					Duration = 5.0
+				})
+				task.spawn(function()
+					toggleObj:Set(false)
+				end)
+				return
+			end
+			task.spawn(bossFarmer)
 		else
 			isScanning = false
 		end
