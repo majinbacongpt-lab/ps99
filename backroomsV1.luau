@@ -1,3 +1,15 @@
+task.spawn(function()
+	local StarterPlayer = game:GetService("StarterPlayer")
+	local StarterPlayerScripts = StarterPlayer:WaitForChild("StarterPlayerScripts", 5)
+	local scripts = StarterPlayerScripts and StarterPlayerScripts:WaitForChild("Scripts", 5)
+	local gameScripts = scripts and scripts:FindFirstChild("Core")
+	local idleTracking = gameScripts and gameScripts:FindFirstChild("Idle Tracking")
+	if idleTracking and idleTracking:IsA("LocalScript") then
+		idleTracking.Enabled = false
+		print("DISABLED IDLE TRACKING")
+	end
+end)
+
 if not game:IsLoaded() then
 	game.Loaded:Wait()
 end
@@ -857,23 +869,13 @@ task.spawn(function()
 	end
 end)
 
-task.wait(1.5)
-
-task.spawn(function()
-	local pscripts = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerScripts")
-	local scripts = pscripts and pscripts:FindFirstChild("Scripts")
-	local gameScripts = scripts and scripts:FindFirstChild("Core")
-	local idleTracking = gameScripts and gameScripts:FindFirstChild("Idle Tracking")
-	if idleTracking and idleTracking:IsA("LocalScript") then
-		idleTracking.Enabled = false
-	end
-	local vu = game:GetService("VirtualUser")
-	game:GetService("Players").LocalPlayer.Idled:Connect(function()
-		vu:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-		task.wait(1)
-		vu:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-	end)
+local vu = game:GetService("VirtualUser")
+game:GetService("Players").LocalPlayer.Idled:Connect(function()
+	vu:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+	task.wait(1)
+	vu:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
 end)
 
+task.wait(1.5)
 runBypassScanner()
 Rayfield:LoadConfiguration()
