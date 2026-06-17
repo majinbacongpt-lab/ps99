@@ -56,6 +56,8 @@ local PlayerPet = require(game.ReplicatedStorage.Library.Client.PlayerPet)
 local EventUpgradeCmds = require(game.ReplicatedStorage.Library.Client.EventUpgradeCmds)
 local EventUpgrades = require(game.ReplicatedStorage.Library.Directory.EventUpgrades)
 local FFlags = require(game.ReplicatedStorage.Library.Client.FFlags)
+local InventoryCmds = require(game.ReplicatedStorage.Library.Client.InventoryCmds)
+local CurrencyCmds = require(game.ReplicatedStorage.Library.Client.CurrencyCmds)
 
 local activeFolder = workspace:WaitForChild("__THINGS"):WaitForChild("__INSTANCE_CONTAINER"):WaitForChild("Active")
 local backroomsFolder = activeFolder:WaitForChild("Backrooms")
@@ -206,7 +208,20 @@ local function getBestEggRoom()
 	return bestRoom
 end
 
+local function updateRoomExpirations()
+	local serverTime = workspace:GetServerTimeNow()
+	for _, room in ipairs(scannedRooms) do
+		if room.EggExpireTimestamp and serverTime >= room.EggExpireTimestamp then
+			if room.IsActive then
+				room.IsActive = false
+				print("Room " .. tostring(room.RoomUID) .. " expired at server time " .. tostring(room.EggExpireTimestamp))
+			end
+		end
+	end
+end
+
 local function getActiveTitanicRoom()
+	updateRoomExpirations()
 	for _, room in ipairs(scannedRooms) do
 		if room.RoomID == "TitanicEggRoom" and room.IsActive then
 			return room
@@ -216,6 +231,7 @@ local function getActiveTitanicRoom()
 end
 
 local function getActiveGauntletRoom()
+	updateRoomExpirations()
 	for _, room in ipairs(scannedRooms) do
 		if room.RoomID == "GauntletEggRoom" and room.IsActive then
 			return room
@@ -568,7 +584,55 @@ local function getEggDirForRoom(roomModel)
 	return nil
 end
 
+local function getUpgradeCost(upgrade, tier)
+	local clone = upgrade.TierCosts[tier]:Clone()
+	local mult = 1
+	local key = nil
+	if upgrade._id == "BackroomsBossDamage" then
+		key = FFlags.Keys.BackroomsUpgrade_BossDamage_PriceMult
+	elseif upgrade._id == "BackroomsExtraLootRoll" then
+		key = FFlags.Keys.BackroomsUpgrade_ExtraLootRoll_PriceMult
+	elseif upgrade._id == "BackroomsTokenFind" then
+		key = FFlags.Keys.BackroomsUpgrade_TokenFind_PriceMult
+	end
+	if key then
+		mult = FFlags.GetNumber(key) or 1
+	end
+	return math.max(1, math.ceil(clone:GetAmount() * mult))
+end
+
+local function canAffordUpgrade(upgrade)
+	local currentTier = EventUpgradeCmds.GetTier(upgrade)
+	if currentTier >= #upgrade.TierPowers then
+		return false
+	end
+	local costItem = upgrade.TierCosts[currentTier + 1]
+	if not costItem then
+		return false
+	end
+	local costAmount = getUpgradeCost(upgrade, currentTier + 1)
+	local tokenItem = MiscItem("Chest Hunt Token")
+	if tokenItem and tokenItem:CountAny() >= costAmount then
+		return true
+	end
+	return false
+end
+
 local function scanStreamedRooms()
+	local expiryMap = {}
+	local activeInstance = InstancingCmds.Get()
+	if activeInstance then
+		pcall(function()
+			local dataList = activeInstance:InvokeCustom("AbstractRoom_GetPlayerData")
+			if type(dataList) == "table" then
+				for _, v in ipairs(dataList) do
+					if v.uid and v.data and v.data.EggExpireTimestamp then
+						expiryMap[v.uid] = v.data.EggExpireTimestamp
+					end
+				end
+			end
+		end)
+	end
 	for _, room in ipairs(GeneratedBackrooms:GetChildren()) do
 		local roomUID = room:GetAttribute("RoomUID")
 		if roomUID then
@@ -588,7 +652,8 @@ local function scanStreamedRooms()
 			end
 			local isActive = false
 			if room.Name == "GauntletEggRoom" or room.Name == "TitanicEggRoom" then
-				isActive = room:FindFirstChild("ChestTimer") ~= nil
+				local timer = room:FindFirstChild("ChestTimer")
+				isActive = timer ~= nil and timer.Enabled == true
 			end
 			if not existing then
 				local floorPos = landingSpot(room) + Vector3.new(0, 4, 0)
@@ -607,11 +672,13 @@ local function scanStreamedRooms()
 					LockedRoom = room:GetAttribute("LockedRoom") or room:FindFirstChild("LockedDoors") ~= nil,
 					DeepRoom = room:GetAttribute("DeepRoom"),
 					EggName = eggName,
-					IsActive = isActive
+					IsActive = isActive,
+					EggExpireTimestamp = expiryMap[roomUID]
 				})
 				scannedUIDs[roomUID] = true
 				print("Scanned: " .. room.Name .. " | UID: " .. tostring(roomUID) .. (eggName and (" | Egg: " .. eggName) or "") .. (isActive and " | ACTIVE" or ""))
 			else
+				existing.EggExpireTimestamp = expiryMap[roomUID] or existing.EggExpireTimestamp
 				if existing.RoomID == "FreeEggRoom" and existing.EggName == nil and eggName ~= nil then
 					existing.EggName = eggName
 					print("Updated EggName for Room " .. tostring(roomUID) .. ": " .. eggName)
@@ -793,7 +860,16 @@ task.spawn(function()
 				local hrp = character and character:FindFirstChild("HumanoidRootPart")
 				if hrp then
 					local roomModel = findRoomModel(targetRoom.RoomUID)
-					local dest = roomModel and (roomModel:FindFirstChild("Sign") or roomModel:FindFirstChild("EggPedestal") or roomModel:FindFirstChild("Backrooms Egg"))
+					local dest = nil
+					if roomModel then
+						if targetRoom.RoomID == "FreeEggRoom" or targetRoom.Name == "FreeEggRoom" then
+							dest = roomModel:FindFirstChild("Sign")
+						elseif targetRoom.RoomID == "GauntletEggRoom" or targetRoom.Name == "GauntletEggRoom" then
+							dest = roomModel:FindFirstChild("EggPedestal")
+						elseif targetRoom.RoomID == "TitanicEggRoom" or targetRoom.Name == "TitanicEggRoom" then
+							dest = roomModel:FindFirstChild("FeatureAnchor")
+						end
+					end
 					if dest then
 						local dist = (hrp.Position - dest:GetPivot().Position).Magnitude
 						if dist > 60 then
@@ -888,40 +964,6 @@ task.spawn(function()
 		end
 	end
 end)
-
-local function getUpgradeCost(upgrade, tier)
-	local clone = upgrade.TierCosts[tier]:Clone()
-	local mult = 1
-	local key = nil
-	if upgrade._id == "BackroomsBossDamage" then
-		key = FFlags.Keys.BackroomsUpgrade_BossDamage_PriceMult
-	elseif upgrade._id == "BackroomsExtraLootRoll" then
-		key = FFlags.Keys.BackroomsUpgrade_ExtraLootRoll_PriceMult
-	elseif upgrade._id == "BackroomsTokenFind" then
-		key = FFlags.Keys.BackroomsUpgrade_TokenFind_PriceMult
-	end
-	if key then
-		mult = FFlags.GetNumber(key) or 1
-	end
-	return math.max(1, math.ceil(clone:GetAmount() * mult))
-end
-
-local function canAffordUpgrade(upgrade)
-	local currentTier = EventUpgradeCmds.GetTier(upgrade)
-	if currentTier >= #upgrade.TierPowers then
-		return false
-	end
-	local costItem = upgrade.TierCosts[currentTier + 1]
-	if not costItem then
-		return false
-	end
-	local costAmount = getUpgradeCost(upgrade, currentTier + 1)
-	local tokenItem = MiscItem("Chest Hunt Token")
-	if tokenItem and tokenItem:CountAny() >= costAmount then
-		return true
-	end
-	return false
-end
 
 task.spawn(function()
 	while true do
