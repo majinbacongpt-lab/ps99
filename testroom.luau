@@ -19,7 +19,6 @@ local roomsTable = getRoomsTable()
 if not roomsTable then
 	print("roomsTable is nil!")
 else
-	print("Rooms in table:")
 	local found = false
 	for uid, roomController in pairs(roomsTable) do
 		local model = roomController.model
@@ -28,14 +27,14 @@ else
 		print("UID:", uid, "Name:", name, "RoomID:", roomId)
 		if name == "MiniBossRoom" or roomId == "MiniBossRoom" then
 			found = true
-			print("Found MiniBossRoom! Firing UnlockDoors...")
+			print("firing")
 			local success, err = pcall(function()
 				roomController:FireServer("UnlockDoors")
 			end)
-			print("Result:", success, err)
+			print("output:", success, err)
 		end
 	end
 	if not found then
-		print("MiniBossRoom was NOT found in the rooms table!")
+		print("not found")
 	end
 end
