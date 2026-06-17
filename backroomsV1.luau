@@ -50,8 +50,8 @@ local scanRunning = false
 local scanCompleted = false
 
 local Window = Rayfield:CreateWindow({
-	Name = "Backrooms Scanner UI",
-	LoadingTitle = "Loading Scanner...",
+	Name = "PS99 Backrooms Script",
+	LoadingTitle = "Loading...",
 	LoadingSubtitle = "by Antigravity",
 	Theme = "Default",
 	DisableRayfieldPrompts = false,
@@ -64,7 +64,7 @@ local Window = Rayfield:CreateWindow({
 	KeySystem = false
 })
 
-local Tab = Window:CreateTab("Scanner", 4483362458)
+local Tab = Window:CreateTab("Main", 4483362458)
 local StatusLabel = Tab:CreateLabel("Status: Idle")
 
 local selectedEggType = "Any"
@@ -255,6 +255,7 @@ local function teleportToRoom(room)
 					local door = lockedDoors and lockedDoors:FindFirstChild("Door")
 					if door then
 						character:PivotTo(door:GetPivot())
+						task.wait(0.25)
 					end
 					unlockRoomDoors(room.RoomUID, room.DeepRoom)
 					task.wait(0.15)
@@ -267,6 +268,7 @@ local function teleportToRoom(room)
 					local door = lockedDoors and lockedDoors:FindFirstChild("Door")
 					if door then
 						character:PivotTo(door:GetPivot())
+						task.wait(0.25)
 					end
 					unlockRoomDoors(room.RoomUID, room.DeepRoom)
 					task.wait(0.15)
