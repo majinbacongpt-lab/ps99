@@ -53,6 +53,9 @@ local CustomEggsCmds = require(game.ReplicatedStorage.Library.Client.CustomEggsC
 local EggCmds = require(game.ReplicatedStorage.Library.Client.EggCmds)
 local MiscItem = require(game.ReplicatedStorage.Library.Items.MiscItem)
 local PlayerPet = require(game.ReplicatedStorage.Library.Client.PlayerPet)
+local EventUpgradeCmds = require(game.ReplicatedStorage.Library.Client.EventUpgradeCmds)
+local EventUpgrades = require(game.ReplicatedStorage.Library.Directory.EventUpgrades)
+local FFlags = require(game.ReplicatedStorage.Library.Client.FFlags)
 
 local activeFolder = workspace:WaitForChild("__THINGS"):WaitForChild("__INSTANCE_CONTAINER"):WaitForChild("Active")
 local backroomsFolder = activeFolder:WaitForChild("Backrooms")
@@ -444,12 +447,16 @@ AutoFarmMiniBossToggle = MiniBossTab:CreateToggle({
 	Flag = "AutoFarmMiniBoss",
 	Callback = function(Value)
 		if scanRunning or tpRunning then return end
-		local room = getActiveMiniBossRoom()
-		if room then
-			teleportToRoom(room)
-		else
-			createMessage("Mini Boss Room not found!")
+		
+		if Value == true then
+			local room = getActiveMiniBossRoom()
+			if room then
+				teleportToRoom(room)
+			else
+				createMessage("Mini Boss Room not found!")
+			end
 		end
+
 		autoFarmMiniBoss = Value
 		if Value then
 			if AutoFindBestToggle then AutoFindBestToggle:Set(false) end
@@ -469,6 +476,16 @@ local MiniBossButton = MiniBossTab:CreateButton({
 		else
 			createMessage("Mini Boss Room not found!")
 		end
+	end,
+})
+
+local autoBuyUpgrades = false
+local AutoBuyUpgradesToggle = MiniBossTab:CreateToggle({
+	Name = "Auto Buy Backrooms Upgrades",
+	CurrentValue = false,
+	Flag = "AutoBuyUpgrades",
+	Callback = function(Value)
+		autoBuyUpgrades = Value
 	end,
 })
 
@@ -868,6 +885,60 @@ task.spawn(function()
 		task.wait(2)
 		if not scanRunning then
 			pcall(scanStreamedRooms)
+		end
+	end
+end)
+
+local function getUpgradeCost(upgrade, tier)
+	local clone = upgrade.TierCosts[tier]:Clone()
+	local mult = 1
+	local key = nil
+	if upgrade._id == "BackroomsBossDamage" then
+		key = FFlags.Keys.BackroomsUpgrade_BossDamage_PriceMult
+	elseif upgrade._id == "BackroomsExtraLootRoll" then
+		key = FFlags.Keys.BackroomsUpgrade_ExtraLootRoll_PriceMult
+	elseif upgrade._id == "BackroomsTokenFind" then
+		key = FFlags.Keys.BackroomsUpgrade_TokenFind_PriceMult
+	end
+	if key then
+		mult = FFlags.GetNumber(key) or 1
+	end
+	return math.max(1, math.ceil(clone:GetAmount() * mult))
+end
+
+local function canAffordUpgrade(upgrade)
+	local currentTier = EventUpgradeCmds.GetTier(upgrade)
+	if currentTier >= #upgrade.TierPowers then
+		return false
+	end
+	local costItem = upgrade.TierCosts[currentTier + 1]
+	if not costItem then
+		return false
+	end
+	local costAmount = getUpgradeCost(upgrade, currentTier + 1)
+	local tokenItem = MiscItem("Chest Hunt Token")
+	if tokenItem and tokenItem:CountAny() >= costAmount then
+		return true
+	end
+	return false
+end
+
+task.spawn(function()
+	while true do
+		task.wait(2)
+		if autoBuyUpgrades then
+			local tracks = {
+				EventUpgrades.BackroomsBossDamage,
+				EventUpgrades.BackroomsExtraLootRoll,
+				EventUpgrades.BackroomsTokenFind
+			}
+			for _, upgrade in ipairs(tracks) do
+				if upgrade and canAffordUpgrade(upgrade) then
+					pcall(function()
+						EventUpgradeCmds.Purchase(upgrade)
+					end)
+				end
+			end
 		end
 	end
 end)
