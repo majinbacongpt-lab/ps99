@@ -29,7 +29,7 @@ local function createMessage(msg)
 	if workspace:FindFirstChildOfClass("Message") then
 		return
 	end
-	
+
 	local message = Instance.new("Message", workspace)
 	message.Text = msg
 	return message
@@ -73,6 +73,7 @@ local visitedAnchors = {}
 local scanRunning = false
 local scanCompleted = false
 local tpRunning = false
+local serverHopping = false
 
 local Window = Rayfield:CreateWindow({
 	Name = "PS99 Backrooms Script",
@@ -367,6 +368,8 @@ local function teleportToRoom(room)
 end
 
 local function serverHop()
+	if serverHopping then return end
+	serverHopping = true
 	local HttpService = game:GetService("HttpService")
 	local TeleportService = game:GetService("TeleportService")
 	local success, result = pcall(function()
@@ -467,7 +470,7 @@ AutoFarmMiniBossToggle = MiniBossTab:CreateToggle({
 	Flag = "AutoFarmMiniBoss",
 	Callback = function(Value)
 		if scanRunning or tpRunning then return end
-		
+
 		if Value == true then
 			local room = getActiveMiniBossRoom()
 			if room then
@@ -789,7 +792,7 @@ end
 task.spawn(function()
 	while true do
 		task.wait(0.5)
-		if autoHatchEnabled and not scanRunning and not tpRunning then
+		if autoHatchEnabled and not scanRunning and not tpRunning and not serverHopping then
 			local character = getCharacter()
 			if character then
 				local hrp = character:FindFirstChild("HumanoidRootPart")
@@ -840,7 +843,7 @@ end)
 task.spawn(function()
 	while true do
 		task.wait(0.85)
-		if not scanRunning and scanCompleted and not tpRunning then
+		if not scanRunning and scanCompleted and not tpRunning and not serverHopping then
 			local targetRoom = nil
 			if autoTPTitanic then
 				targetRoom = getActiveTitanicRoom()
@@ -891,7 +894,7 @@ end)
 task.spawn(function()
 	while true do
 		task.wait(0.25)
-		if autoFarmMiniBoss and not scanRunning and not tpRunning then
+		if autoFarmMiniBoss and not scanRunning and not tpRunning and not serverHopping then
 			local room = getActiveMiniBossRoom()
 			if room then
 				local character = getCharacter()
@@ -972,7 +975,7 @@ end)
 task.spawn(function()
 	while true do
 		task.wait(2)
-		if autoBuyUpgrades then
+		if autoBuyUpgrades and not serverHopping then
 			local tracks = {
 				EventUpgrades.BackroomsBossDamage,
 				EventUpgrades.BackroomsExtraLootRoll,
