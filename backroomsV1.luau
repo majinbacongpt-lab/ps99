@@ -54,7 +54,7 @@ local tpRunning = false
 local Window = Rayfield:CreateWindow({
 	Name = "PS99 Backrooms Script",
 	LoadingTitle = "Loading...",
-	LoadingSubtitle = "by Antigravity",
+	LoadingSubtitle = "by Pirate Games",
 	Theme = "Default",
 	DisableRayfieldPrompts = false,
 	DisableBuildWarnings = false,
@@ -429,6 +429,13 @@ AutoFarmMiniBossToggle = MiniBossTab:CreateToggle({
 	CurrentValue = false,
 	Flag = "AutoFarmMiniBoss",
 	Callback = function(Value)
+		if scanRunning or tpRunning then return end
+		local room = getActiveMiniBossRoom()
+		if room then
+			teleportToRoom(room)
+		else
+			createMessage("Mini Boss Room not found!")
+		end
 		autoFarmMiniBoss = Value
 		if Value then
 			if AutoFindBestToggle then AutoFindBestToggle:Set(false) end
@@ -689,9 +696,6 @@ local function runBypassScanner()
 	local message = createMessage("Exploring backrooms instance. Please wait...")
 	scanStreamedRooms()
 	while true do
-		if #scannedRooms >= 150 then
-			break
-		end
 		local targetAnchor = nil
 		for _, roomData in ipairs(scannedRooms) do
 			if not visitedAnchors[roomData.RoomUID] then
@@ -747,6 +751,15 @@ local function runBypassScanner()
 			task.wait(1)
 			serverHop()
 		end
+	elseif autoFarmMiniBoss then
+		local room = getActiveMiniBossRoom()
+		if room then
+			teleportToRoom(room)
+		else
+			createMessage("Mini Boss Room not found. Server hopping...")
+			task.wait(1)
+			serverHop()
+		end
 	else
 		local character = LocalPlayer.Character
 		local activeInstance = InstancingCmds.Get()
@@ -779,23 +792,41 @@ task.spawn(function()
 		if autoFarmMiniBoss and not scanRunning and not tpRunning then
 			local room = getActiveMiniBossRoom()
 			if room then
-				local roomModel = findRoomModel(room.RoomUID)
-				if roomModel then
-					local character = getCharacter()
-					local hrp = character and character:FindFirstChild("HumanoidRootPart")
-					if hrp then
+				local character = getCharacter()
+				local hrp = character and character:FindFirstChild("HumanoidRootPart")
+				if hrp then
+					local roomModel = findRoomModel(room.RoomUID)
+					local inRoom = false
+					if roomModel then
 						local cf, size = roomModel:GetBoundingBox()
 						local roomCenter = cf.Position
 						local distToRoom = (hrp.Position - roomCenter).Magnitude
-						if distToRoom > 130 then
-							teleportToRoom(room)
-							task.wait(1)
-						else
-							local targetBreakable = nil
-							local breakables = workspace.__THINGS.Breakables:GetChildren()
+						if distToRoom <= 130 then
+							inRoom = true
+						end
+					end
+					if not inRoom then
+						teleportToRoom(room)
+						task.wait(1)
+					else
+						local cf, size = roomModel:GetBoundingBox()
+						local roomCenter = cf.Position
+						local targetBreakable = nil
+						local breakables = workspace.__THINGS.Breakables:GetChildren()
+						for _, b in ipairs(breakables) do
+							local bId = b:GetAttribute("BreakableID")
+							if bId == "Daydream Mimic Chest" then
+								local bPos = b:GetPivot().Position
+								if (bPos - roomCenter).Magnitude < 130 then
+									targetBreakable = b
+									break
+								end
+							end
+						end
+						if not targetBreakable then
 							for _, b in ipairs(breakables) do
 								local bId = b:GetAttribute("BreakableID")
-								if bId == "Daydream Mimic Chest" then
+								if bId == "Daydream Mimic Boss" then
 									local bPos = b:GetPivot().Position
 									if (bPos - roomCenter).Magnitude < 130 then
 										targetBreakable = b
@@ -803,31 +834,19 @@ task.spawn(function()
 									end
 								end
 							end
-							if not targetBreakable then
-								for _, b in ipairs(breakables) do
-									local bId = b:GetAttribute("BreakableID")
-									if bId == "Daydream Mimic Boss" then
-										local bPos = b:GetPivot().Position
-										if (bPos - roomCenter).Magnitude < 130 then
-											targetBreakable = b
-											break
-										end
-									end
-								end
+						end
+						if targetBreakable then
+							local bUID = targetBreakable:GetAttribute("BreakableUID")
+							local bPos = targetBreakable:GetPivot().Position
+							local humanoid = character:FindFirstChildOfClass("Humanoid")
+							if humanoid then
+								humanoid:MoveTo(bPos)
 							end
-							if targetBreakable then
-								local bUID = targetBreakable:GetAttribute("BreakableUID")
-								local bPos = targetBreakable:GetPivot().Position
-								local humanoid = character:FindFirstChildOfClass("Humanoid")
-								if humanoid then
-									humanoid:MoveTo(bPos)
-								end
-								Network.UnreliableFire("Breakables_PlayerDealDamage", bUID)
-								local activePets = PlayerPet.GetByPlayer(LocalPlayer)
-								for _, pet in pairs(activePets) do
-									if pet.cpet then
-										pet:SetTarget(targetBreakable)
-									end
+							Network.UnreliableFire("Breakables_PlayerDealDamage", bUID)
+							local activePets = PlayerPet.GetByPlayer(LocalPlayer)
+							for _, pet in pairs(activePets) do
+								if pet.cpet then
+									pet:SetTarget(targetBreakable)
 								end
 							end
 						end
