@@ -293,27 +293,6 @@ local function TeleportToRoom(roomModel, ignore)
 
 	if (not ignore) and (roomModel.Name == "TitanicEggRoom" or roomModel.Name == "GauntletEggRoom" or roomModel.Name == "MiniBossRoom") then
 		UnlockRoom(roomUID)
-
-		if roomModel.Name == "TitanicEggRoom" or roomModel.Name == "GauntletEggRoom" then
-			local timerBillboard = roomModel:FindFirstChild("ChestTimer")
-			if timerBillboard ~= nil then
-				local timerText = timerBillboard:FindFirstChild("Timer")
-				if timerText ~= nil then
-					local roomData = findRoomDataByUID(roomUID)
-					if roomData ~= nil then
-						local minutes, seconds = string.match(timerText.Text, "(%d+):(%d+)")
-						if minutes and seconds then
-							roomData.ExpireTime = workspace:GetServerTimeNow() + (tonumber(minutes) * 60) + tonumber(seconds)
-							print((tonumber(minutes) * 60) + tonumber(seconds), "seconds left")
-						end
-					else
-						warn("no room data")
-					end
-				end
-			else
-				warn("doesnt exist")
-			end
-		end
 	end
 
 	local dest = roomModel:FindFirstChild("Sign")
@@ -322,10 +301,30 @@ local function TeleportToRoom(roomModel, ignore)
 		or roomModel:FindFirstChildWhichIsA("BasePart", true)
 
 	local targetCF = dest and dest:GetPivot() or CFrame.new(pos)
-
 	rootPart:PivotTo(targetCF + Vector3.new(0, 3, 0))
-
 	rootPart.Anchored = false
+	
+	if (not ignore) and (roomModel.Name == "TitanicEggRoom" or roomModel.Name == "GauntletEggRoom") then
+		task.wait(0.5)
+		local timerBillboard = roomModel:FindFirstChild("ChestTimer")
+		if timerBillboard ~= nil then
+			local timerText = timerBillboard:FindFirstChild("Timer")
+			if timerText ~= nil then
+				local roomData = findRoomDataByUID(roomUID)
+				if roomData ~= nil then
+					local minutes, seconds = string.match(timerText.Text, "(%d+):(%d+)")
+					if minutes and seconds then
+						roomData.ExpireTime = workspace:GetServerTimeNow() + (tonumber(minutes) * 60) + tonumber(seconds)
+						print((tonumber(minutes) * 60) + tonumber(seconds), "seconds left")
+					end
+				else
+					warn("no room data")
+				end
+			end
+		else
+			warn("doesnt exist")
+		end
+	end
 
 	_G.Teleporting = false
 end
@@ -416,7 +415,6 @@ local function Scan()
 
 				warn("FOUND: " .. room.Id .. " with multiplier: " .. mult .. "x | Egg: " .. room.EggName)
 			end
-			task.wait(0.5)
 		end
 
 		if room.Id == "GauntletEggRoom" or room.Id == "TitanicEggRoom" then
@@ -431,7 +429,6 @@ local function Scan()
 				warn("FOUND: " .. room.Id)
 				room.IsActive = true
 			end
-			task.wait(0.5)
 		end
 
 		rootPart.Anchored = false
