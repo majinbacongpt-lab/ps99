@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 
 if typeof(require) ~= "function" then
-	Players.LocalPlayer:Kick("unc executor so ass 😭🙏")
+	Players.LocalPlayer:Kick("not supported")
 	return
 end
 
@@ -134,6 +134,15 @@ local activeFolder = workspace:WaitForChild("__THINGS")
 
 local backroomsFolder = activeFolder:WaitForChild("Backrooms")
 local GeneratedBackrooms = backroomsFolder:WaitForChild("GeneratedBackrooms")
+
+local function findRoomDataByUID(roomUID)
+	for _, roomData in ipairs(_G.ScannedRooms) do
+		if roomData.uid == roomUID then
+			return roomData
+		end
+	end
+	return nil
+end
 
 local function findRoomModelByUID(roomUID)
 	for _, roomModel in ipairs(GeneratedBackrooms:GetChildren()) do
@@ -263,6 +272,7 @@ local function TeleportToRoom(roomModel)
 		return
 	end
 
+	local roomUID = roomModel:GetAttribute("RoomUID")
 	local pos = roomModel:GetPivot().Position
 
 	Network.Fire("RequestStreaming", pos)
@@ -276,13 +286,31 @@ local function TeleportToRoom(roomModel)
 			forceField:Destroy() 
 		end
 	end)
-	
+
 	rootPart.Anchored = true
 
 	task.wait(0.3)
 
 	if roomModel.Name == "TitanicEggRoom" or roomModel.Name == "GauntletEggRoom" or roomModel.Name == "MiniBossRoom" then
-		UnlockRoom(roomModel:GetAttribute("RoomUID"))
+		UnlockRoom(roomUID)
+
+		if roomModel.Name == "TitanicEggRoom" or roomModel.Name == "GauntletEggRoom" then
+			local timerBillboard = roomModel:FindFirstChild("ChestTimer")
+			if timerBillboard ~= nil then
+				local roomData = findRoomDataByUID(roomUID)
+				if roomData ~= nil then
+					local minutes, seconds = string.match(timerBillboard.Text, "(%d+):(%d+)")
+					if minutes and seconds then
+						roomData.ExpireTime = workspace:GetServerTimeNow() + (tonumber(minutes) * 60) + tonumber(seconds)
+						print((tonumber(minutes) * 60) + tonumber(seconds), "seconds left")
+					end
+				else
+					warn("no room data")
+				end
+			else
+				warn("doesnt exist")
+			end
+		end
 	end
 
 	local dest = roomModel:FindFirstChild("Sign")
@@ -293,7 +321,7 @@ local function TeleportToRoom(roomModel)
 	local targetCF = dest and dest:GetPivot() or CFrame.new(pos)
 
 	rootPart:PivotTo(targetCF + Vector3.new(0, 3, 0))
-	
+
 	rootPart.Anchored = false
 
 	_G.Teleporting = false
@@ -399,12 +427,6 @@ local function Scan()
 			if egg ~= nil and isActive then
 				warn("FOUND: " .. room.Id)
 				room.IsActive = true
-
-				egg.Destroying:Connect(function()
-					if room.IsActive then
-						room.IsActive = nil
-					end
-				end)
 			end
 			task.wait(0.5)
 		end
@@ -976,6 +998,19 @@ task.spawn(function()
 			serverHop("No Boss Room in this server. hopping...")
 			task.wait(5)
 		end 
+	end
+end)
+
+task.spawn(function()
+	while true do
+		task.wait(1)
+		
+		for _, roomData in ipairs(_G.ScannedRooms) do
+			if roomData.IsActive ~= nil and roomData.ExpireTime ~= nil and roomData.ExpireTime < workspace:GetServerTimeNow() then
+				roomData.IsActive = nil
+				warn("Expired " .. roomData.Id)
+			end
+		end
 	end
 end)
 
