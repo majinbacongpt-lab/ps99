@@ -255,7 +255,7 @@ local function UnlockRoom(roomUID)
 	end
 end
 
-local function TeleportToRoom(roomModel)
+local function TeleportToRoom(roomModel, ignore)
 	if _G.Teleporting then
 		return
 	end
@@ -291,7 +291,7 @@ local function TeleportToRoom(roomModel)
 
 	task.wait(0.3)
 
-	if roomModel.Name == "TitanicEggRoom" or roomModel.Name == "GauntletEggRoom" or roomModel.Name == "MiniBossRoom" then
+	if (not ignore) and (roomModel.Name == "TitanicEggRoom" or roomModel.Name == "GauntletEggRoom" or roomModel.Name == "MiniBossRoom") then
 		UnlockRoom(roomUID)
 
 		if roomModel.Name == "TitanicEggRoom" or roomModel.Name == "GauntletEggRoom" then
@@ -398,7 +398,7 @@ local function Scan()
 
 		_G.VistedRooms[room.uid] = true
 		rootPart.Anchored = true
-		TeleportToRoom(room.Model)
+		TeleportToRoom(room.Model, true)
 
 		if room.Id == "MiniBossRoom" then
 			warn("FOUND: " .. room.Id)
