@@ -706,11 +706,12 @@ local function runBypassScanner()
 				hrp.Anchored = true
 				Network.Fire("RequestStreaming", targetAnchor.ScanCFrame.Position)
 				character:PivotTo(targetAnchor.ScanCFrame)
-				task.wait(0.35)
+				task.wait(0.3)
 				hrp.Anchored = false
 			end
 		end
 		scanStreamedRooms()
+		task.wait(0.25)
 	end
 	print("Scan complete. Total rooms: " .. #scannedRooms)
 	StatusLabel:Set("Status: Scan Complete (" .. #scannedRooms .. " rooms)")
@@ -968,15 +969,6 @@ game:GetService("Players").LocalPlayer.Idled:Connect(function()
 	vu:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
 	task.wait(1)
 	vu:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-end)
-
-task.spawn(function()
-	while true do
-		task.wait(2)
-		if not scanRunning then
-			pcall(scanStreamedRooms)
-		end
-	end
 end)
 
 task.wait(1.5)
