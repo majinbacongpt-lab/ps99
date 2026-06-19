@@ -372,15 +372,49 @@ local function Scan()
 				local roomCFrame = room:GetPivot()
 
 				if not existing then
-					table.insert(_G.ScannedRooms, {
+					local roomData = {
 						uid = roomUID,
 						Id = room:GetAttribute("RoomID"),
 						Model = room,
 						CFrame = roomCFrame,
 						Position = roomCFrame.Position
-					})
+					}
+					
+					if roomId == "MiniBossRoom" then
+						warn("FOUND: " .. roomId)
+					end
+
+					if roomId == "FreeEggRoom" then
+						TeleportToRoom(room, true)
+						local eggDir = getEggDirForRoom(room)
+						local mult = room:GetAttribute("EggMultiplier") or 0
+
+						if eggDir and mult > 0 then
+							roomData.EggMultiplier = mult
+							roomData.EggName = eggDir.name or eggDir._id or ""
+
+							warn("FOUND: " .. roomId .. " with multiplier: " .. mult .. "x | Egg: " .. roomData.EggName)
+						end
+						task.wait(1.5)
+					end
+
+					if roomId == "GauntletEggRoom" or roomId == "TitanicEggRoom" then
+						TeleportToRoom(room, true)
+
+						local eggUID = room:GetAttribute("EggUID")
+						local chestTimer = room:FindFirstChild("ChestTimer")
+						local isActive = chestTimer ~= nil
+
+						local egg = workspace.__THINGS.CustomEggs:FindFirstChild(eggUID)
+						if egg ~= nil and isActive then
+							warn("FOUND: " .. roomId)
+							roomData.IsActive = true
+						end
+						task.wait(1.5)
+					end
+					
+					table.insert(_G.ScannedRooms, roomData)
 					StatusLabel:Set("Status: Scanned " .. #_G.ScannedRooms .. " rooms")
-					Network.Fire("RequestStreaming", roomCFrame.Position)
 				end
 			end
 		end
@@ -391,6 +425,10 @@ local function Scan()
 	while true do
 		if #_G.ScannedRooms >= 200 then
 			break
+		end
+		
+		if _G.Teleporting == true then
+			continue
 		end
 		
 		local character = getCharacter()
@@ -416,44 +454,7 @@ local function Scan()
 		end
 
 		_G.VistedRooms[room.uid] = true
-		rootPart.Anchored = true
 		TeleportToRoom(room.Model, true)
-		task.wait(0.35)
-
-		if room.Id == "MiniBossRoom" then
-			warn("FOUND: " .. room.Id)
-		end
-
-		if room.Id == "FreeEggRoom" then
-			task.wait(1.5)
-			local roomModel = room.Model
-			local eggDir = getEggDirForRoom(roomModel)
-			local mult = roomModel:GetAttribute("EggMultiplier") or 0
-
-			if eggDir and mult > 0 then
-				room.EggMultiplier = mult
-				room.EggName = eggDir.name or eggDir._id or ""
-
-				warn("FOUND: " .. room.Id .. " with multiplier: " .. mult .. "x | Egg: " .. room.EggName)
-			end
-		end
-
-		if room.Id == "GauntletEggRoom" or room.Id == "TitanicEggRoom" then
-			task.wait(1.5)
-			local roomModel = room.Model
-			local eggUID = roomModel:GetAttribute("EggUID")
-			local chestTimer = roomModel:FindFirstChild("ChestTimer")
-			local isActive = chestTimer ~= nil
-
-			local egg = workspace.__THINGS.CustomEggs:FindFirstChild(eggUID)
-			if egg ~= nil and isActive then
-				warn("FOUND: " .. room.Id)
-				room.IsActive = true
-			end
-		end
-
-		rootPart.Anchored = false
-
 		run()
 		task.wait(0.1)
 	end
