@@ -279,6 +279,14 @@ local function TeleportToRoom(roomModel, ignore)
 	end
 
 	local roomUID = roomModel:GetAttribute("RoomUID")
+	local roomId = roomModel:GetAttribute("RoomID")
+	local roomData = findRoomDataByUID(roomUID)
+	if not roomData then
+		warn("NO ROOM DATA")
+		_G.Teleporting = false
+		return
+	end
+	
 	local pos = roomModel:GetPivot().Position
 
 	Network.Fire("RequestStreaming", pos)
@@ -297,9 +305,6 @@ local function TeleportToRoom(roomModel, ignore)
 
 	task.wait(0.3)
 
-	local roomData = findRoomDataByUID(roomUID)
-	local roomId = roomData and roomData.Id or roomModel.Name
-
 	if (not ignore) and (roomId == "TitanicEggRoom" or roomId == "GauntletEggRoom" or roomId == "MiniBossRoom") then
 		UnlockRoom(roomUID)
 	end
@@ -314,26 +319,19 @@ local function TeleportToRoom(roomModel, ignore)
 	rootPart.Anchored = false
 
 	if (not ignore) and (roomId == "TitanicEggRoom" or roomId == "GauntletEggRoom") then
-		task.wait(0.5)
+		task.wait(0.75)
 		local timerBillboard = roomModel:FindFirstChild("ChestTimer")
 		if timerBillboard ~= nil then
 			local timerText = timerBillboard:FindFirstChild("Timer")
 			if timerText ~= nil then
-				if roomData ~= nil then
-					local minutes, seconds = string.match(timerText.Text, "(%d+):(%d+)")
-					if minutes and seconds then
-						roomData.ExpireTime = workspace:GetServerTimeNow() + (tonumber(minutes) * 60) + tonumber(seconds)
-						print((tonumber(minutes) * 60) + tonumber(seconds), "seconds left")
-					end
-				else
-					warn("no room data")
+				local minutes, seconds = string.match(timerText.Text, "(%d+):(%d+)")
+				if minutes and seconds then
+					roomData.ExpireTime = workspace:GetServerTimeNow() + (tonumber(minutes) * 60) + tonumber(seconds)
+					print((tonumber(minutes) * 60) + tonumber(seconds), "seconds left")
 				end
 			end
 		else
 			warn("doesnt exist")
-			if roomData then
-				roomData.IsActive = nil
-			end
 		end
 	end
 
