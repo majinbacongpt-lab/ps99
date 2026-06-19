@@ -378,6 +378,17 @@ local function Scan()
 						Position = roomCFrame.Position
 					}
 					
+					table.insert(_G.ScannedRooms, roomData)
+					StatusLabel:Set("Status: Scanned " .. #_G.ScannedRooms .. " rooms")
+					
+					task.wait(0.15)
+					
+					local currentRoomData = findRoomDataByUID(roomData.uid)
+					if not currentRoomData then
+						warn("didnt update")
+						continue
+					end
+					
 					if roomId == "MiniBossRoom" then
 						warn("FOUND: " .. roomId)
 					end
@@ -388,10 +399,10 @@ local function Scan()
 						local mult = room:GetAttribute("EggMultiplier") or 0
 
 						if eggDir and mult > 0 then
-							roomData.EggMultiplier = mult
-							roomData.EggName = eggDir.name or eggDir._id or ""
+							currentRoomData.EggMultiplier = mult
+							currentRoomData.EggName = eggDir.name or eggDir._id or ""
 
-							warn("FOUND: " .. roomId .. " with multiplier: " .. mult .. "x | Egg: " .. roomData.EggName)
+							warn("FOUND: " .. roomId .. " with multiplier: " .. mult .. "x | Egg: " .. currentRoomData.EggName)
 						end
 						task.wait(1.5)
 					end
@@ -406,13 +417,10 @@ local function Scan()
 						local egg = workspace.__THINGS.CustomEggs:FindFirstChild(eggUID)
 						if egg ~= nil and isActive then
 							warn("FOUND: " .. roomId)
-							roomData.IsActive = true
+							currentRoomData.IsActive = true
 						end
 						task.wait(1.5)
 					end
-					
-					table.insert(_G.ScannedRooms, roomData)
-					StatusLabel:Set("Status: Scanned " .. #_G.ScannedRooms .. " rooms")
 				end
 			end
 		end
@@ -1006,7 +1014,6 @@ task.spawn(function()
 		end
 
 		if targetRoom then
-			local isInRoom = false
 			local roomModel = targetRoom.Model
 			local pos = targetRoom.Position
 
@@ -1015,11 +1022,7 @@ task.spawn(function()
 				pos = breakZone:GetPivot().Position
 			end
 
-			local distToRoom = (rootPart.Position - pos).Magnitude
-			if distToRoom <= 130 then
-				isInRoom = true
-			end
-
+			local isInRoom = (rootPart.Position - pos).Magnitude <= 130
 			if (not isInRoom) then
 				TeleportToRoom(roomModel)
 				task.wait(1)
