@@ -613,6 +613,10 @@ AutoGauntletEggToggle = Tab:CreateToggle({
 				AutoTitanicEggToggle:Set(false)
 			end
 		end
+		
+		if value == false then
+			_G.CurrentGauntletRoom = nil
+		end
 
 		_G.AutoTPGauntlet = value
 	end,
@@ -635,6 +639,10 @@ AutoTitanicEggToggle = Tab:CreateToggle({
 			if AutoGauntletEggToggle ~= nil then
 				AutoGauntletEggToggle:Set(false)
 			end
+		end
+		
+		if value == false then
+			_G.CurrentTitanicRoom = false
 		end
 
 		_G.AutoTPTitanic = value
@@ -830,9 +838,8 @@ end)
 task.spawn(function()
 	while true do
 		task.wait(0.5)
-
-		if not _G.AutoTPGauntlet then
-			_G.CurrentGauntletRoom = nil
+		
+		if not _G.AutoTPGauntlet or _G.CurrentGauntletRoom ~= nil then
 			continue
 		end
 
@@ -849,34 +856,18 @@ task.spawn(function()
 		if not rootPart then
 			continue
 		end
-
-		if _G.CurrentGauntletRoom then
-			local stillActive = false
-			for _, r in ipairs(_G.ScannedRooms) do
-				if r.uid == _G.CurrentGauntletRoom.uid then
-					if r.IsActive ~= nil then
-						stillActive = true
-					end
-					break
-				end
-			end
-			if not stillActive then
-				warn("Gauntlet room " .. tostring(_G.CurrentGauntletRoom.uid) .. " expired. Seeking next active...")
-				_G.CurrentGauntletRoom = nil
+		
+		local targetRoom = nil
+		for _, r in ipairs(_G.ScannedRooms) do
+			if r.Id == "GauntletEggRoom" and r.IsActive ~= nil then
+				targetRoom = r
+				break
 			end
 		end
 
-		if not _G.CurrentGauntletRoom then
-			for _, r in ipairs(_G.ScannedRooms) do
-				if r.Id == "GauntletEggRoom" and r.IsActive ~= nil then
-					_G.CurrentGauntletRoom = r
-					break
-				end
-			end
-		end
-
-		local targetRoom = _G.CurrentGauntletRoom
 		if targetRoom then
+			_G.CurrentGauntletRoom = targetRoom
+			
 			local eggPedestal = targetRoom.Model:FindFirstChild("EggPedestal")
 			if eggPedestal then
 				local pedestalPos = eggPedestal:GetPivot().Position
@@ -903,8 +894,7 @@ task.spawn(function()
 	while true do
 		task.wait(0.5)
 
-		if not _G.AutoTPTitanic then
-			_G.CurrentTitanicRoom = nil
+		if not _G.AutoTPTitanic or _G.CurrentTitanicRoom ~= nil then
 			continue
 		end
 
@@ -922,33 +912,17 @@ task.spawn(function()
 			continue
 		end
 
-		if _G.CurrentTitanicRoom then
-			local stillActive = false
-			for _, r in ipairs(_G.ScannedRooms) do
-				if r.uid == _G.CurrentTitanicRoom.uid then
-					if r.IsActive ~= nil then
-						stillActive = true
-					end
-					break
-				end
-			end
-			if not stillActive then
-				warn("Titanic room " .. tostring(_G.CurrentTitanicRoom.uid) .. " expired. Seeking next active...")
-				_G.CurrentTitanicRoom = nil
+		local targetRoom = nil
+		for _, r in ipairs(_G.ScannedRooms) do
+			if r.Id == "TitanicEggRoom" and r.IsActive ~= nil then
+				targetRoom = r
+				break
 			end
 		end
-
-		if not _G.CurrentTitanicRoom then
-			for _, r in ipairs(_G.ScannedRooms) do
-				if r.Id == "TitanicEggRoom" and r.IsActive ~= nil then
-					_G.CurrentTitanicRoom = r
-					break
-				end
-			end
-		end
-
-		local targetRoom = _G.CurrentTitanicRoom
+		
 		if targetRoom then
+			_G.CurrentTitanicRoom = targetRoom
+			
 			local eggPedestal = targetRoom.Model:FindFirstChild("EggPedestal")
 			if eggPedestal then
 				local pedestalPos = eggPedestal:GetPivot().Position
@@ -1106,6 +1080,14 @@ task.spawn(function()
 			if roomData.IsActive ~= nil and roomData.ExpireTime ~= nil and roomData.ExpireTime < workspace:GetServerTimeNow() then
 				roomData.IsActive = nil
 				warn("Expired " .. roomData.Id)
+				
+				if _G.CurrentGauntletRoom ~= nil and roomData.uid == _G.CurrentGauntletRoom.uid then
+					_G.CurrentGauntletRoom = nil
+				end
+				
+				if _G.CurrentTitanicRoom ~= nil and roomData.uid == _G.CurrentTitanicRoom.uid then
+					_G.CurrentTitanicRoom = nil
+				end
 			end
 		end
 	end
