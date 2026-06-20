@@ -139,7 +139,7 @@ local function scanAndSnipe()
 					local dir = item:Directory()
 					if dir and dir.huge then
 						local rap = item:GetRAP() or 0
-						if price <= 21000000 and (rap > 0 and price < rap) then
+--						if price <= 21000000 and (rap > 0 and price < rap) then
 							foundAny = true
 							local elapsed = os.clock() - lastPurchaseTime
 							if elapsed < 1 then
@@ -152,8 +152,9 @@ local function scanAndSnipe()
 							--	pcall(sendWebhook, item:GetName(), price, rap)
 							--end
 							
+							warn("FOUND", item:GetName(), price)
 							pcall(sendWebhook, item:GetName(), price, rap)
-						end
+--						end
 					end
 				end
 			end
