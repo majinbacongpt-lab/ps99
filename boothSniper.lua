@@ -1,3 +1,5 @@
+--TS not working yet lol
+
 if not game:IsLoaded() then
 	game.Loaded:Wait()
 end
@@ -21,7 +23,7 @@ local Network = require(ReplicatedStorage.Library.Client.Network)
 local Items = require(ReplicatedStorage.Library.Items)
 local LuaScanner = require(ReplicatedStorage.Library.Modules.LuaScanner)
 
-local webhookURL = "https://discord.com/api/webhooks/1429450097556455456/a6Wu4vVHzwRvivX9hamYq3OjBGzvGw2PCH6Pw-O61mu7kMxVYAT8kSiDcWfJZTg5il0P"
+local webhookURL = ""
 local placeId = game.PlaceId
 local jobId = game.JobId
 local localPlayer = Players.LocalPlayer
