@@ -30,6 +30,7 @@ local InventoryCmds = require(game.ReplicatedStorage.Library.Client.InventoryCmd
 local CurrencyCmds = require(game.ReplicatedStorage.Library.Client.CurrencyCmds)
 
 local localPlayer = Players.LocalPlayer
+local enterPosition = nil
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
@@ -390,14 +391,15 @@ local function Scan()
 		local activeInstance = InstancingCmds.Get()
 		if character and activeInstance then
 			local spawnLocation = CollectionService:GetTagged("DeepSpawnLocation")[1]
-			assert(spawnLocation)
+			if spawnLocation and spawnLocation:IsA("BasePart") and (not enterPosition) then
+				enterPosition = spawnLocation.Position
+			end
+			
 			warn(spawnLocation)
-
-			local enterPosition = spawnLocation.Position
+			
 			local pos = enterPosition + Vector3.new(0, 3, 0)
-
+			
 			Network.Fire("RequestStreaming", pos)
-
 			task.delay(0.25, function()
 				if character.Parent and InstancingCmds.IsInInstance("Backrooms") then
 					character:PivotTo(CFrame.new(pos))
