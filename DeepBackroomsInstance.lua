@@ -255,6 +255,7 @@ local function UnlockRoom(roomUID)
 		local Lock = child:FindFirstChild("Lock")
 		if Lock and Lock.Transparency < 0.5 then
 			rootPart:PivotTo(Lock:GetPivot())
+			task.wait(0.3)
 			isLocked = true
 			break
 		end
@@ -929,6 +930,17 @@ task.spawn(function()
 			serverHop("No Boss Room in this server. hopping...")
 			task.wait(5)
 		end 
+	end
+end)
+
+task.spawn(function()
+	while true do
+		for _, room in ipairs(GeneratedBackrooms:GetChildren()) do
+			if room.Name == "Walls" then
+				room:Destroy()
+			end
+		end
+		task.wait(1)
 	end
 end)
 
