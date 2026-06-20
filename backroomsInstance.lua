@@ -1,4 +1,4 @@
--- script is buggy (made by @majinbacon)
+-- NOT UPDATED! script is buggy (made by @majinbacon)
 
 if not game:IsLoaded() then
 	game.Loaded:Wait()
