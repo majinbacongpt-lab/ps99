@@ -7,6 +7,7 @@ if typeof(require) ~= "function" then
 end
 
 if game.PlaceId ~= 15502339080 then
+	game:GetService("TeleportService"):Teleport(15502339080, game.Players.LocalPlayer)
 	return
 end
 
