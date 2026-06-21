@@ -506,7 +506,7 @@ local function Scan()
 	run()
 
 	while true do
-		if #_G.ScannedRooms >= 250 then
+		if #_G.ScannedRooms >= 400 then
 			break
 		end
 
