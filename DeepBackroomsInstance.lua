@@ -191,7 +191,7 @@ local function getNearestEgg(hrp)
 	return closestEgg
 end
 
-local function getEggDirForRoom(roomModel)
+local function getEggDirForRoom_OLD(roomModel)
 	local sign = roomModel:FindFirstChild("Sign")
 	if not sign then
 		return nil
@@ -408,18 +408,17 @@ local function CleanupWalls()
 	end
 	
 	for _, child in ipairs(folder:GetChildren()) do
-		task.spawn(function()
-			if child.Name == "Walls" then
-				local children = child:GetChildren()
-				for i, part in ipairs(children) do
-					if i % 25 == 0 then
-						RunService.Heartbeat:Wait()
-					end
-					part:Destroy()
+		if child.Name == "Walls" then
+			local children = child:GetChildren()
+			for i, part in ipairs(children) do
+				if i % 25 == 0 then
+					RunService.Heartbeat:Wait()
 				end
-				child:Destroy()
+				part:Destroy()
 			end
-		end)
+			child:Destroy()
+			break
+		end
 	end
 end
 
@@ -443,42 +442,6 @@ local function Scan()
 	until #folder:GetChildren() > 0
 	
 	CleanupWalls()
-
-	local function TPtoSpawn()
-		local character = getCharacter()
-		if not character then
-			return
-		end
-		
-		if typeof(enterPosition) ~= "Vector3"  then
-			local folder = getGeneratedBackrooms()
-			if not folder then
-				return
-			end
-
-			local spawnRoom = folder:FindFirstChild("DeepSpawnRoom")
-			if not spawnRoom then
-				return
-			end
-
-			local spawnLocation = spawnRoom:FindFirstChild("DEEP_SPAWN_LOCATION")
-			if spawnLocation then
-				enterPosition = spawnLocation.Position
-				warn("SAVED", enterPosition)
-			end
-		end
-		
-		local pos = enterPosition + Vector3.new(0, 4, 0)
-		
-		Network.Fire("RequestStreaming", pos)
-		task.delay(0.25, function()
-			if character.Parent then
-				character:PivotTo(CFrame.new(pos))
-			end
-		end)
-	end
-
-	TPtoSpawn()
 
 	local function run()
 		local folder = getGeneratedBackrooms()
@@ -569,7 +532,6 @@ local function Scan()
 		TeleportToRoom(room.uid, true)
 		task.wait(0.4)
 		RunService.RenderStepped:Wait()
-		CleanupWalls()
 		run()
 	end
 
@@ -577,17 +539,48 @@ local function Scan()
 	StatusLabel:Set("Status: Scan Complete (" .. #_G.ScannedRooms .. " rooms)")
 	game.Debris:AddItem(message, 0)
 	
-	task.delay(0.5, function()
+	local function TPtoSpawn()
 		local character = getCharacter()
-		if character then
-			TPtoSpawn()
-			
-			local rootPart = character:FindFirstChild("HumanoidRootPart")
-			if rootPart then
-				rootPart.Anchored = false
+		if not character then
+			return
+		end
+		
+		local rootPart = character:FindFirstChild("HumanoidRootPart")
+		if not rootPart then
+			return
+		end
+
+		if typeof(enterPosition) ~= "Vector3"  then
+			local folder = getGeneratedBackrooms()
+			if not folder then
+				return
+			end
+
+			local spawnRoom = folder:FindFirstChild("DeepSpawnRoom")
+			if not spawnRoom then
+				return
+			end
+
+			local spawnLocation = spawnRoom:FindFirstChild("DEEP_SPAWN_LOCATION")
+			if spawnLocation then
+				enterPosition = spawnLocation.Position
+				warn("SAVED", enterPosition)
 			end
 		end
-	end)
+
+		local pos = enterPosition + Vector3.new(0, 4, 0)
+
+		Network.Fire("RequestStreaming", pos)
+		
+		task.delay(0.25, function()
+			if character.Parent then
+				rootPart.Anchored = false
+				character:PivotTo(CFrame.new(pos))
+			end
+		end)
+	end
+	
+	TPtoSpawn()
 
 	warn("Scan successfully finished!")
 end
