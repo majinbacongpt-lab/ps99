@@ -289,7 +289,7 @@ local function UnlockRoom(roomUID)
 		local Lock = child:FindFirstChild("Lock")
 		if Lock and Lock.Transparency < 0.5 then
 			rootPart.CFrame = CFrame.new(Lock.Position)
-			task.wait(0.5)
+			task.wait(0.25)
 			isLocked = true
 			break
 		end
@@ -308,7 +308,7 @@ local function UnlockRoom(roomUID)
 	end
 end
 
-local function TeleportToRoom(roomModel, isScanning)
+local function TeleportToRoom(roomUID, isScanning)
 	if _G.Teleporting then
 		return
 	end
@@ -327,20 +327,20 @@ local function TeleportToRoom(roomModel, isScanning)
 		return
 	end
 
-	local roomUID = roomModel:GetAttribute("RoomUID")
-	local roomId = roomModel:GetAttribute("RoomID")
 	local roomData = findRoomDataByUID(roomUID)
 	if not roomData then
 		warn("NO ROOM DATA")
 		_G.Teleporting = false
 		return
 	end
-
-	local pos = roomModel:GetPivot().Position
-	local targetObj = roomModel:FindFirstChild("Sign")
-		or roomModel:FindFirstChild("BREAK_ZONE")
-		or roomModel.PrimaryPart
-		or roomModel:FindFirstChildWhichIsA("BasePart", true)
+	
+	local roomModel = roomData.Model
+	local roomId = roomData.Id
+	local pos = roomData.Position
+	
+	local function teleport()
+		
+	end
 	
 	local forceField = Instance.new("ForceField")
 	forceField.Visible = false
@@ -348,14 +348,10 @@ local function TeleportToRoom(roomModel, isScanning)
 
 	Network.Fire("RequestStreaming", pos)
 	
-	if (not isScanning) and (roomId == "DeepLockedEggRoom" or roomId == "GameMastersStage") then
-		UnlockRoom(roomUID)
-	end
-	
 	rootPart.Anchored = true
-	rootPart.CFrame = (targetObj and targetObj.CFrame or CFrame.new(pos)) + Vector3.new(0, 15, 0) 
+	rootPart.CFrame = CFrame.new(pos) + Vector3.new(0, 3, 0)
 	
-	task.delay(isScanning and 5 or 1.3, function()
+	task.delay(isScanning and 5 or 3, function()
 		if forceField and forceField.Parent then 
 			forceField:Destroy() 
 		end
@@ -364,7 +360,18 @@ local function TeleportToRoom(roomModel, isScanning)
 	end)
 
 	if (not isScanning) then
-		task.wait(0.3)
+		task.wait(0.5)
+		
+		if roomId == "DeepLockedEggRoom" or roomId == "GameMastersStage" then
+			UnlockRoom(roomUID)
+		end
+		
+		local targetObj = roomModel:FindFirstChild("Sign")
+			or roomModel:FindFirstChild("BREAK_ZONE")
+			or roomModel.PrimaryPart
+			or roomModel:FindFirstChildWhichIsA("BasePart", true)
+		
+		rootPart.CFrame = (targetObj and targetObj.CFrame or CFrame.new(pos)) + Vector3.new(0, 15, 0) 
 		
 		if roomId == "DeepLockedEggRoom" then
 			local activeInstance = InstancingCmds.Get()
