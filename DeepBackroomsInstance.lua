@@ -34,7 +34,7 @@ local enterPosition = nil
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
-	Name = "PS99 Backrooms Script V3",
+	Name = "PS99 Backrooms Script",
 	LoadingTitle = "Loading...",
 	LoadingSubtitle = "by Pirate Games",
 	Theme = "Default",
@@ -307,7 +307,7 @@ local function UnlockRoom(roomUID)
 	end
 end
 
-local function TeleportToRoom(roomModel, ignore)
+local function TeleportToRoom(roomModel, isScanning)
 	if _G.Teleporting then
 		return
 	end
@@ -350,15 +350,15 @@ local function TeleportToRoom(roomModel, ignore)
 			forceField:Destroy() 
 		end
 	end)
-
-	rootPart.Anchored = true
-	rootPart.CFrame = roomModel:GetPivot() + Vector3.new(0, 5, 0)
 	
-	if (not ignore) and (roomId == "DeepLockedEggRoom" or roomId == "GameMastersStage") then
+	if (not isScanning) and (roomId == "DeepLockedEggRoom" or roomId == "GameMastersStage") then
 		UnlockRoom(roomUID)
 	end
 
-	if (not ignore) and roomId == "DeepLockedEggRoom" then
+	rootPart.Anchored = true
+	rootPart.CFrame =  roomModel:GetBoundingBox() + Vector3.new(0, 15, 0)
+
+	if (not isScanning) and roomId == "DeepLockedEggRoom" then
 		task.wait(0.5)
 		local activeInstance = InstancingCmds.Get()
 		if activeInstance then
@@ -503,16 +503,19 @@ local function Scan()
 		end
 
 		if _G.Teleporting == true then
+			task.wait(0.1)
 			continue
 		end
 
 		local character = getCharacter()
 		if not character then
+			task.wait(0.1)
 			continue
 		end
 
 		local rootPart = character:FindFirstChild("HumanoidRootPart")
 		if not rootPart then
+			task.wait(0.1)
 			continue
 		end
 
@@ -534,8 +537,8 @@ local function Scan()
 
 		_G.VistedRooms[room.uid] = true
 		TeleportToRoom(room.Model, true)
+		task.wait(0.1)
 		run()
-		task.wait(0.3)
 	end
 
 	_G.IsScanning = false
