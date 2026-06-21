@@ -402,9 +402,16 @@ local function CleanupWalls()
 		return
 	end
 	
-	for _, child in ipairs(folder:GetDescendants()) do
+	for _, child in ipairs(folder:GetChildren()) do
 		pcall(function()
-			if child and child.Parent and string.find(child.Name:lower(), "wall") then
+			if child.Name == "Walls" then
+				local children = child:GetChildren()
+				for i, part in ipairs(children) do
+					part:Destroy()
+					if i % 50 == 0 then
+						task.wait()
+					end
+				end
 				child:Destroy()
 			end
 		end)
@@ -552,6 +559,7 @@ local function Scan()
 		TeleportToRoom(room.Model, true)
 		task.wait(0.4)
 		RunService.RenderStepped:Wait()
+		CleanupWalls()
 		run()
 	end
 
