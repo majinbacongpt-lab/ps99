@@ -256,11 +256,11 @@ local function getBestLockedEggRoom()
 end
 
 local function keyCheck()
-	local keyItem = MiscItem("Deep Backrooms Crayon Key")
-	if keyItem and keyItem:HasAny() then
-		return true
-	end
-	return false
+	local ok, hasKey = pcall(function()
+		local keyItem = MiscItem("Deep Backrooms Crayon Key")
+		return keyItem and keyItem:HasAny() or false
+	end)
+	return ok and hasKey or false
 end
 
 local function UnlockRoom(roomUID)
@@ -347,12 +347,14 @@ local function TeleportToRoom(roomUID, isScanning)
 	rootPart.Anchored = true
 	rootPart.CFrame = CFrame.new(pos) + Vector3.new(0, 3, 0)
 	
-	task.delay(isScanning and 5 or 3, function()
+	task.delay(3, function()
 		if forceField and forceField.Parent then 
 			forceField:Destroy() 
 		end
 		
-		rootPart.Anchored = false
+		if (not isScanning) then
+			rootPart.Anchored = false
+		end
 	end)
 
 	if (not isScanning) then
@@ -466,9 +468,14 @@ local function Scan()
 			end
 		end
 		
-		local pos = enterPosition + Vector3.new(0, 1.5, 0)
+		local pos = enterPosition + Vector3.new(0, 2, 0)
+		
 		Network.Fire("RequestStreaming", pos)
-		character:PivotTo(CFrame.new(pos))
+		task.delay(0.25, function()
+			if character.Parent then
+				character:PivotTo(CFrame.new(pos))
+			end
+		end)
 	end
 
 	TPtoSpawn()
@@ -569,7 +576,18 @@ local function Scan()
 	_G.IsScanning = false
 	StatusLabel:Set("Status: Scan Complete (" .. #_G.ScannedRooms .. " rooms)")
 	game.Debris:AddItem(message, 0)
-	TPtoSpawn()
+	
+	task.delay(0.5, function()
+		local character = getCharacter()
+		if character then
+			TPtoSpawn()
+			
+			local rootPart = character:FindFirstChild("HumanoidRootPart")
+			if rootPart then
+				rootPart.Anchored = false
+			end
+		end
+	end)
 
 	warn("Scan successfully finished!")
 end
@@ -609,10 +627,10 @@ AutoBestEgg = Tab:CreateToggle({
 		end
 
 		if value then
-			if AutoFarmBoss ~= nil then
+			if AutoFarmBoss ~= nil and _G.AutoMiniBoss == true then
 				AutoFarmBoss:Set(false)
 			end
-			if AutoLockedEgg ~= nil then
+			if AutoLockedEgg ~= nil and _G.AutoTPLockedEgg == true then
 				AutoLockedEgg:Set(false)
 			end
 		end
@@ -687,10 +705,10 @@ AutoLockedEgg = Tab:CreateToggle({
 		end
 
 		if value then
-			if AutoFarmBoss ~= nil then
+			if AutoFarmBoss ~= nil and _G.AutoMiniBoss == true then
 				AutoFarmBoss:Set(false)
 			end
-			if AutoBestEgg ~= nil then
+			if AutoBestEgg ~= nil and _G.AutoTPBestEgg == true then
 				AutoBestEgg:Set(false)
 			end
 		end
@@ -852,10 +870,10 @@ AutoFarmBoss = MiniBossTab:CreateToggle({
 		end
 		
 		if value then
-			if AutoHatch ~= nil then
+			if AutoHatch ~= nil and _G.AutoHatch == true then
 				AutoHatch:Set(false)
 			end
-			if AutoBestEgg ~= nil then
+			if AutoBestEgg ~= nil and _G.AutoTPBestEgg == true then
 				AutoBestEgg:Set(false)
 			end
 		end
