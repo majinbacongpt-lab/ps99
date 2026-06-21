@@ -338,10 +338,6 @@ local function TeleportToRoom(roomUID, isScanning)
 	local roomId = roomData.Id
 	local pos = roomData.Position
 	
-	local function teleport()
-		
-	end
-	
 	local forceField = Instance.new("ForceField")
 	forceField.Visible = false
 	forceField.Parent = character
@@ -563,7 +559,7 @@ local function Scan()
 		end
 
 		_G.VistedRooms[room.uid] = true
-		TeleportToRoom(room.Model, true)
+		TeleportToRoom(room.uid, true)
 		task.wait(0.4)
 		RunService.RenderStepped:Wait()
 		CleanupWalls()
@@ -591,7 +587,7 @@ FreeEggTPButton = Tab:CreateButton({
 		
 		local room = getBestEggRoom()
 		if room then
-			TeleportToRoom(room.Model)
+			TeleportToRoom(room.uid)
 		else
 			Rayfield:Notify({
 				Title = "No Room Found",
@@ -659,7 +655,7 @@ LockedEggTPButton = Tab:CreateButton({
 
 		local room = getBestLockedEggRoom()
 		if room then
-			TeleportToRoom(room.Model)
+			TeleportToRoom(room.uid)
 		else
 			Rayfield:Notify({
 				Title = "No Room Found",
@@ -756,18 +752,7 @@ BreakablesRoomTPButton = MiniBossTab:CreateButton({
 		for _, r in ipairs(_G.ScannedRooms) do
 			if string.match(r.Id, "DeepCoinRoom") ~= nil then
 				found = true
-				TeleportToRoom(r.Model)
-				task.wait(0.3)
-				local breakableZone = r.Model:FindFirstChild("BREAK_ZONE")
-				if breakableZone ~= nil then
-					local character = getCharacter()
-					if character then
-						local rootPart = character:FindFirstChild("HumanoidRootPart")
-						if rootPart then
-							rootPart:PivotTo(CFrame.new(breakableZone.Position) + Vector3.new(0, 3, 0))
-						end
-					end
-				end
+				TeleportToRoom(r.uid)
 				break
 			end
 		end
@@ -794,18 +779,7 @@ DeepChestRoomTPButton = MiniBossTab:CreateButton({
 		for _, r in ipairs(_G.ScannedRooms) do
 			if string.match(r.Id, "DeepChestRoom") ~= nil then
 				found = true
-				TeleportToRoom(r.Model)
-				task.wait(0.3)
-				local breakableZone = r.Model:FindFirstChild("BREAK_ZONE")
-				if breakableZone ~= nil then
-					local character = getCharacter()
-					if character then
-						local rootPart = character:FindFirstChild("HumanoidRootPart")
-						if rootPart then
-							rootPart:PivotTo(CFrame.new(breakableZone.Position) + Vector3.new(0, 3, 0))
-						end
-					end
-				end
+				TeleportToRoom(r.uid)
 				break
 			end
 		end
@@ -942,13 +916,13 @@ task.spawn(function()
 				local pedestalPos = sign:GetPivot().Position
 				local distance = (rootPart.Position - pedestalPos).Magnitude
 				if distance > 15 then
-					TeleportToRoom(room.Model)
+					TeleportToRoom(room.uid)
 				end
 			else
 				local roomPos = room.Model:GetPivot().Position
 				local distance = (rootPart.Position - roomPos).Magnitude
 				if distance > 25 then
-					TeleportToRoom(room.Model)
+					TeleportToRoom(room.uid)
 				end
 			end
 		else
@@ -988,13 +962,13 @@ task.spawn(function()
 				local pedestalPos = sign:GetPivot().Position
 				local distance = (rootPart.Position - pedestalPos).Magnitude
 				if distance > 15 then
-					TeleportToRoom(room.Model)
+					TeleportToRoom(room.uid)
 				end
 			else
 				local roomPos = room.Model:GetPivot().Position
 				local distance = (rootPart.Position - roomPos).Magnitude
 				if distance > 25 then
-					TeleportToRoom(room.Model)
+					TeleportToRoom(room.uid)
 				end
 			end
 		else
@@ -1066,6 +1040,7 @@ task.spawn(function()
 		end
 
 		if targetRoom then
+			local uid = targetRoom.uid
 			local roomModel = targetRoom.Model
 			local pos = targetRoom.Position
 
@@ -1076,7 +1051,7 @@ task.spawn(function()
 
 			local isInRoom = (rootPart.Position - pos).Magnitude <= 130
 			if (not isInRoom) then
-				TeleportToRoom(roomModel)
+				TeleportToRoom(uid)
 				task.wait(1)
 			else
 				local targetBreakable = nil
