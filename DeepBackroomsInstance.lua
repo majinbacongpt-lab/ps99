@@ -41,9 +41,10 @@ task.spawn(function()
 	end
 	
 	local container = InventoryCmds.Container(Players.LocalPlayer)
-	local petType = Types.TypeUnchecked("Pet")
-	if container and petType then
-		for itemUID, item in pairs(container:All(petType)) do
+	local petsInventory = container:All()
+	
+	for itemUID, item in pairs(petsInventory) do
+		if item:IsA("Pet") then
 			local exclusiveLevel = item:GetExclusiveLevel()
 			if exclusiveLevel and exclusiveLevel > 3 then
 				seenPets[itemUID] = true
@@ -1404,59 +1405,63 @@ Network.Fired("Items: Update"):Connect(function(player, packet, currencyPacket)
 	end
 
 	for classKey, items in pairs(packet.set) do
-		if classKey == "Pet" then
-			local classType = Types.TypeUnchecked(classKey)
-			if classType then
-				for itemUID, itemData in pairs(items) do
-					if not seenPets[itemUID] then
-						local item = classType:From(itemData)
-						item:SetUID(itemUID)
+		if classKey ~= "Pet" then
+			continue
+		end
+		
+		local classType = Types.TypeUnchecked(classKey)
+		if classType then
+			for itemUID, itemData in pairs(items) do
+				if seenPets[itemUID] == true then
+					continue
+				end
+				
+				local item = classType:From(itemData)
+				item:SetUID(itemUID)
 
-						local exclusiveLevel = item:GetExclusiveLevel()
-						if exclusiveLevel > 3 then
-							seenPets[itemUID] = true
+				local exclusiveLevel = item:GetExclusiveLevel()
+				if exclusiveLevel > 3 then
+					seenPets[itemUID] = true
 
-							local itemName = item:GetName()
-							local itemIcon = item:GetIcon()
-							local exists = item:GetExistCount()
-							local rap = item:GetRAP()
-							local thumbnailUrl = getThumbnailUrl(string.match(itemIcon, "%d+"))
+					local itemName = item:GetName()
+					local itemIcon = item:GetIcon()
+					local exists = item:GetExistCount()
+					local rap = item:GetRAP()
+					local thumbnailUrl = getThumbnailUrl(string.match(itemIcon, "%d+"))
 
-							local embed = {
-								title = "||" .. localPlayer.Name .. "|| just hatched a " .. itemName .. "!",
-								color = 16753920,
-								fields = {
-									{
-										name = "Exists",
-										value = tostring(NumberShorten(exists)),
-										inline = true
-									},
-									{
-										name = "RAP",
-										value = tostring(NumberShorten(rap)),
-										inline = true
-									}
-								},
-								footer = { text = "discord.gg/k2mSRWgfhX" },
-								timestamp = DateTime.now():ToIsoDate()
+					local embed = {
+						title = "||" .. localPlayer.Name .. "|| just hatched a " .. itemName .. "!",
+						color = 16753920,
+						fields = {
+							{
+								name = "Exists",
+								value = tostring(NumberShorten(exists)),
+								inline = true
+							},
+							{
+								name = "RAP",
+								value = tostring(NumberShorten(rap)),
+								inline = true
 							}
+						},
+						footer = { text = "discord.gg/k2mSRWgfhX" },
+						timestamp = DateTime.now():ToIsoDate()
+					}
 
-							if thumbnailUrl then
-								embed.thumbnail = { url = thumbnailUrl }
-							end
-
-							local content = (getgenv().discordId == "" or getgenv().discordId == nil)
-								and "@everyone"
-								or 	"<@" .. getgenv().discordId .. ">"		
-
-							sendWebhook({
-								username = "Pirate Games Logger",
-								avatar_url = "https://raw.githubusercontent.com/BuildIntoPirates/ps99/main/channels4_profile.jpg",
-								content = content,
-								embeds = { embed }
-							})
-						end
+					if thumbnailUrl then
+						embed.thumbnail = { url = thumbnailUrl }
 					end
+
+					local content = (getgenv().discordId == "" or getgenv().discordId == nil)
+						and "@everyone"
+						or 	"<@" .. getgenv().discordId .. ">"		
+
+					sendWebhook({
+						username = "Pirate Games Logger",
+						avatar_url = "https://raw.githubusercontent.com/BuildIntoPirates/ps99/main/channels4_profile.jpg",
+						content = content,
+						embeds = { embed }
+					})
 				end
 			end
 		end
