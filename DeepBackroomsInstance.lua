@@ -164,7 +164,7 @@ local function getThumbnailUrl(iconId)
 end
 
 local function sendWebhook(data)
-	if getgenv().webhook == nil then
+	if getgenv().webhook == "" or getgenv().webhook == nil then
 		warn("NO WEBHOOK!!")
 		return
 	end
