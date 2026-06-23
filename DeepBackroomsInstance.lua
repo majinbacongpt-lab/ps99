@@ -297,7 +297,7 @@ local function findRoomModelByUID(roomUID)
 end
 
 local function getNearestEgg(character)
-	if typeof(character) ~= "Model" then
+	if character == nil then
 		return
 	end
 
