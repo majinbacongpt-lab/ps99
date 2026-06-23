@@ -70,6 +70,7 @@ _G.AutoHatch = false
 _G.AutoTPBestEgg = false
 _G.AutoMiniBoss = false
 _G.AutoTPLockedEgg = false
+_G.AutoTPAnomaly = false
 _G.InfinitePetSpeed = false
 
 _G.SelectedLockedEggMult = "Any"
@@ -80,6 +81,8 @@ local AutoBestEgg
 local LockedEggTarget
 local LockedEggTPButton
 local AutoLockedEgg
+local AnomalyTPButton
+local AutoAnomaly
 local AutoHatch
 local DisableHatchAnimation
 local BreakablesRoomTPButton
@@ -207,6 +210,36 @@ local function getNearestEgg(hrp)
 	end
 
 	return closestEgg
+end
+
+local function isPlayerInRoom(roomData)
+	if roomData == nil then 
+		return false 
+	end
+
+	local character = getCharacter()
+	if not character then 
+		return false 
+	end
+
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if not rootPart then 
+		return false
+	end
+
+	local roomCFrame, roomSize = roomData.Model:GetBoundingBox()
+	if not roomCFrame or not roomSize then
+		return false
+	end
+
+	local localPoint = roomCFrame:PointToObjectSpace(rootPart.Position)
+	local limitX = (roomSize.X / 2) + 20
+	local limitY = (roomSize.Y / 2) + 35
+	local limitZ = (roomSize.Z / 2) + 20
+
+	return math.abs(localPoint.X) <= limitX
+		and math.abs(localPoint.Y) <= limitY
+		and math.abs(localPoint.Z) <= limitZ
 end
 
 local function getBestEggRoom()
@@ -468,7 +501,7 @@ local function Scan()
 	if not rootPart then
 		return
 	end
-	
+
 	local total = 0
 	local message = createMessage("Exploring the backrooms! Please wait...")
 	StatusLabel:Set("Status: Scanning...")
@@ -590,10 +623,10 @@ local function Scan()
 
 		local nearestRoom = nil
 		local nearestDist = math.huge
-		
+
 		for i = 1, #_G.ScannedRooms do
 			local room = _G.ScannedRooms[i]
-			
+
 			if _G.VistedRooms[room.uid] == nil then
 				local dist = (room.Position - rootPart.Position).Magnitude
 				if dist < nearestDist then
@@ -602,7 +635,7 @@ local function Scan()
 				end
 			end
 		end
-		
+
 		if not nearestRoom then
 			warn("No more unvisited rooms.")
 			break
@@ -613,9 +646,9 @@ local function Scan()
 		task.wait(0.5)
 		run()
 	end
-	
+
 	table.clear(_G.VistedRooms)
-	
+
 	for i = 1, #_G.ScannedRooms do
 		local room = _G.ScannedRooms[i]
 		if room then
@@ -626,17 +659,34 @@ local function Scan()
 			end
 		end
 	end
-	
+
 	TPtoSpawn()
 	StatusLabel:Set("Status: Scan Complete! Scanned " .. total .. " rooms! with " .. #_G.ScannedRooms .. " valid rooms!")
 	game.Debris:AddItem(message, 0)
 	_G.IsScanning = false
+	
+	task.spawn(function()
+		while true do
+			task.wait(2)
+			
+			if (not _G.IsScanning) then
+				CleanupWalls()
+			end
+		end
+	end)
 
 	warn("Scan finished!")
 end
 
 local function canDoAction()
 	return (not _G.IsScanning) and (not _G.Teleporting)
+end
+
+local function isAutoAnomlyActive()
+	local anomalyActive = workspace:GetAttribute("BackroomsAnomalyActive")
+	local endsAt = workspace:GetAttribute("BackroomsAnomalyEndsAt")
+	
+	return _G.AutoTPAnomaly and anomalyActive == true and type(endsAt) == "number" and endsAt >= workspace:GetServerTimeNow()
 end
 
 FreeEggTPButton = Tab:CreateButton({
@@ -683,7 +733,7 @@ AutoBestEgg = Tab:CreateToggle({
 })
 
 LockedEggTarget = Tab:CreateDropdown({
-	Name = "Locked Egg Mult Target",
+	Name = "Locked Egg Mult Target!",
 	Options = {"Any", "50x", "75x", "100x"},
 	CurrentOption = {"Any"},
 	MultipleOptions = false,
@@ -737,6 +787,59 @@ AutoLockedEgg = Tab:CreateToggle({
 		end
 
 		_G.AutoTPLockedEgg = value
+	end,
+})
+
+AnomalyTPButton = Tab:CreateButton({
+	Name = "Teleport to Active Anomaly! (250x Egg)",
+	Callback = function()
+		if (not canDoAction()) then
+			return
+		end
+		
+		local character = getCharacter()
+		if not character then
+			return
+		end
+
+		local rootPart = character:FindFirstChild("HumanoidRootPart")
+		if not rootPart then
+			return
+		end
+		
+		local isActive = workspace:GetAttribute("BackroomsAnomalyActive")
+		local endsAt = workspace:GetAttribute("BackroomsAnomalyEndsAt")
+		
+		if not isActive or (type(endsAt) == "number" and workspace:GetServerTimeNow() > endsAt) then
+			Rayfield:Notify({
+				Title = "No Anomly",
+				Content = "No Active Anomaly in this server!",
+				Duration = 4,
+				Image = 4483362458
+			})
+			return
+		end
+		
+		local pos = workspace:GetAttribute("BackroomsAnomalyPos")
+		if not pos then
+			return
+		end
+		
+		Network.Fire("RequestStreaming", pos)
+		character:PivotTo(CFrame.new(pos) + Vector3.new(0, 3, 0))
+	end,
+})
+
+AutoAnomaly = Tab:CreateToggle({
+	Name = "Auto TP To Active Anomly (250x Egg)",
+	CurrentValue = false,
+	Flag = "AutoTPAnomaly",
+	Callback = function(value)
+		if (not canDoAction()) then
+			return
+		end
+
+		_G.AutoTPAnomaly = value
 	end,
 })
 
@@ -946,9 +1049,13 @@ ServerHopButton = MiscTab:CreateButton({
 
 task.spawn(function()
 	while true do
-		task.wait(0.5)
-
+		task.wait(1)
+		
 		if not _G.AutoTPBestEgg then
+			continue
+		end
+		
+		if isAutoAnomlyActive() then
 			continue
 		end
 
@@ -968,11 +1075,10 @@ task.spawn(function()
 
 		local room = getBestEggRoom()
 		if room then
-			local sign = room.Model:FindFirstChild("Sign")
-			local pos = sign and sign:GetPivot().Position or room.Model:GetPivot().Position
-			local distance = (rootPart.Position - pos).Magnitude
-			if distance > (sign and 15 or 25) then
+			local isInRoom = isPlayerInRoom(room)
+			if (not isInRoom) then
 				TeleportToRoom(room.uid)
+				task.wait(2)
 			end
 		else
 			serverHop("No Best Egg in this server. hopping...")
@@ -981,12 +1087,15 @@ task.spawn(function()
 	end
 end)
 
-
 task.spawn(function()
 	while true do
-		task.wait(0.5)
-
+		task.wait(1)
+		
 		if not _G.AutoTPLockedEgg then
+			continue
+		end
+		
+		if isAutoAnomlyActive() then
 			continue
 		end
 
@@ -1006,11 +1115,10 @@ task.spawn(function()
 
 		local room = getBestLockedEggRoom()
 		if room then
-			local sign = room.Model:FindFirstChild("Sign")
-			local pos = sign and sign:GetPivot().Position or room.Model:GetPivot().Position
-			local distance = (rootPart.Position - pos).Magnitude
-			if distance > (sign and 15 or 25) then
+			local isInRoom = isPlayerInRoom(room)
+			if (not isInRoom) then
 				TeleportToRoom(room.uid)
+				task.wait(2)
 			end
 		else
 			serverHop("No Best Egg in this server. hopping...")
@@ -1021,8 +1129,51 @@ end)
 
 task.spawn(function()
 	while true do
-		task.wait(0.25)
+		task.wait(1)
+		
+		if not _G.AutoTPAnomaly then
+			continue
+		end
 
+		if not canDoAction() then
+			continue
+		end
+
+		local character = getCharacter()
+		if not character then
+			continue
+		end
+
+		local rootPart = character:FindFirstChild("HumanoidRootPart")
+		if not rootPart then
+			continue
+		end
+		
+		local isActive = workspace:GetAttribute("BackroomsAnomalyActive")
+		local endsAt = workspace:GetAttribute("BackroomsAnomalyEndsAt")
+
+		if not isActive or (type(endsAt) == "number" and workspace:GetServerTimeNow() > endsAt) then
+			continue
+		end
+
+		local pos = workspace:GetAttribute("BackroomsAnomalyPos")
+		if not pos then
+			continue
+		end
+		
+		local distance = (rootPart.Position - pos).Magnitude
+		if distance > 40 then
+			Network.Fire("RequestStreaming", pos)
+			character:PivotTo(CFrame.new(pos) + Vector3.new(0, 3, 0))
+			task.wait(2)
+		end
+	end
+end)
+
+task.spawn(function()
+	while true do
+		task.wait(0.25)
+		
 		if not _G.AutoHatch then
 			continue
 		end
@@ -1052,9 +1203,13 @@ end)
 
 task.spawn(function()
 	while true do
-		task.wait(0.5)
-
+		task.wait(1)
+		
 		if not _G.AutoMiniBoss then
+			continue
+		end
+		
+		if isAutoAnomlyActive() then
 			continue
 		end
 
@@ -1090,43 +1245,49 @@ task.spawn(function()
 				pos = breakZone:GetPivot().Position
 			end
 
-			local isInRoom = (rootPart.Position - pos).Magnitude <= 130
+			local isInRoom = isPlayerInRoom(targetRoom)
 			if (not isInRoom) then
 				TeleportToRoom(uid)
-				task.wait(1)
+				task.wait(2)
 			else
 				local targetBreakable = nil
 				local breakables = workspace:FindFirstChild("__THINGS"):FindFirstChild("Breakables"):GetChildren()
-				for _, b in ipairs(breakables) do
-					local bId = b:GetAttribute("BreakableID")
-					if bId == "Daydream Mimic Chest2" then
-						local bPos = b:GetPivot().Position
-						if (bPos - pos).Magnitude < 130 then
-							targetBreakable = b
+				
+				for _, breakable in ipairs(breakables) do
+					local breakableId = breakable:GetAttribute("BreakableID")
+					if breakableId == "Daydream Mimic Chest2" then
+						local breakablePos = breakable:GetPivot().Position
+						if (breakablePos - pos).Magnitude < 130 then
+							targetBreakable = breakable
 							break
 						end
 					end
 				end
+				
 				if not targetBreakable then
-					for _, b in ipairs(breakables) do
-						local bId = b:GetAttribute("BreakableID")
-						if bId == "Daydream Mimic Boss2" then
-							local bPos = b:GetPivot().Position
-							if (bPos - pos).Magnitude < 130 then
-								targetBreakable = b
+					for _, breakable in ipairs(breakables) do
+						local breakableId = breakable:GetAttribute("BreakableID")
+						if breakableId == "Daydream Mimic Boss2" then
+							local breakablePos = breakable:GetPivot().Position
+							if (breakablePos - pos).Magnitude < 130 then
+								targetBreakable = breakable
 								break
 							end
 						end
 					end
 				end
+				
 				if targetBreakable then
-					local bUID = targetBreakable:GetAttribute("BreakableUID")
-					local bPos = targetBreakable:GetPivot().Position
+					local breakableUID = targetBreakable:GetAttribute("BreakableUID")
+					local breakablePos = targetBreakable:GetPivot().Position
+					
 					local humanoid = character:FindFirstChildOfClass("Humanoid")
 					if humanoid then
-						humanoid:MoveTo(bPos)
+						humanoid:MoveTo(breakablePos)
 					end
-					Network.UnreliableFire("Breakables_PlayerDealDamage", bUID)
+					
+					Network.UnreliableFire("Breakables_PlayerDealDamage", breakableUID)
+					
 					local activePets = PlayerPet.GetByPlayer(localPlayer)
 					for _, pet in pairs(activePets) do
 						if pet.cpet then
@@ -1139,13 +1300,6 @@ task.spawn(function()
 			serverHop("No Boss Room in this server. hopping...")
 			task.wait(5)
 		end 
-	end
-end)
-
-task.spawn(function()
-	while (not _G.IsScanning) do
-		CleanupWalls()
-		task.wait(2)
 	end
 end)
 
