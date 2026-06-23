@@ -473,16 +473,7 @@ local function TPtoSpawn()
 	end
 
 	Network.Fire("RequestStreaming", enterPosition)
-
-	task.delay(0.25, function()
-		if character and character.Parent then
-			if rootPart.Anchored == true then
-				rootPart.Anchored = false
-			end
-
-			rootPart.CFrame = CFrame.new(enterPosition) + Vector3.new(0, 3, 0)
-		end
-	end)
+	rootPart.CFrame = CFrame.new(enterPosition) + Vector3.new(0, 3, 0)
 end
 
 local function Scan()
@@ -661,6 +652,7 @@ local function Scan()
 	end
 
 	TPtoSpawn()
+	rootPart.Anchored = false
 	StatusLabel:Set("Status: Scan Complete! Scanned " .. total .. " rooms! with " .. #_G.ScannedRooms .. " valid rooms!")
 	game.Debris:AddItem(message, 0)
 	_G.IsScanning = false
