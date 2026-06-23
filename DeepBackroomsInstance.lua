@@ -39,10 +39,10 @@ task.spawn(function()
 	while (not Save.Get()) do
 		task.wait()
 	end
-	
+
 	local container = InventoryCmds.Container(Players.LocalPlayer)
 	local petsInventory = container:All()
-	
+
 	for itemUID, item in pairs(petsInventory) do
 		if item:IsA("Pet") then
 			local exclusiveLevel = item:GetExclusiveLevel()
@@ -1251,12 +1251,7 @@ task.spawn(function()
 			continue
 		end
 
-		local rootPart = character:FindFirstChild("HumanoidRootPart")
-		if not rootPart then
-			continue
-		end
-
-		local egg = getNearestEgg(rootPart)
+		local egg = getNearestEgg(character)
 		if egg then
 			pcall(function()
 				Network.Invoke("CustomEggs_Hatch", egg._uid, EggCmds.GetMaxHatch(egg._dir))
@@ -1408,14 +1403,14 @@ Network.Fired("Items: Update"):Connect(function(player, packet, currencyPacket)
 		if classKey ~= "Pet" then
 			continue
 		end
-		
+
 		local classType = Types.TypeUnchecked(classKey)
 		if classType then
 			for itemUID, itemData in pairs(items) do
 				if seenPets[itemUID] == true then
 					continue
 				end
-				
+
 				local item = classType:From(itemData)
 				item:SetUID(itemUID)
 
